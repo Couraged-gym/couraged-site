@@ -100,7 +100,7 @@ export function SignUp() {
   return (
     <AuthShell
       title="Get your pass"
-      lead="Already a member at the front desk? Sign up with your email, then link your gym code. New to CourageD? Same first step."
+      lead="Already a member at the front desk, or new to CourageD? Sign up with your email; we'll find your membership by your mobile number."
       footer={
         <>
           Have an account? <TextLink to="/login">Sign in</TextLink>

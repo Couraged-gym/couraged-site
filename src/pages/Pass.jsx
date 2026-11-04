@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
-import { QRCodeSVG } from 'qrcode.react'
-import { BellRing, CalendarCheck, CreditCard, Expand, LogOut, ReceiptText, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-react'
+import { QRCodeCanvas, QRCodeSVG } from 'qrcode.react'
+import { passCardBlob, saveImage } from '../lib/passCard.js'
+import { BellRing, CalendarCheck, CreditCard, Download, Expand, LogOut, ReceiptText, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-react'
 import { CONSENT_VERSION, message, supabase } from '../lib/supabase.js'
 import { useAuth } from '../auth.jsx'
 import { CountUp, EASE_OUT, StatusBadge, fmtDate } from '../components/ui.jsx'
@@ -48,6 +49,16 @@ function Card({ m }) {
   const [big, setBig] = useState(false)
   const [token, setToken] = useState(m.qr_token)
   const [rotating, setRotating] = useState(false)
+  const qrCanvas = useRef(null)
+  const [saving, setSaving] = useState(false)
+  const saveQr = async () => {
+    setSaving(true)
+    try {
+      await saveImage(await passCardBlob(qrCanvas.current, { name: m.full_name, code: m.code }), `CourageD-pass-${m.code}.png`)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const left = m.ends_on ? dayNo(m.ends_on) - dayNo(manilaToday()) : null
   const status = m.status === 'active' && left <= 5 ? 'expiring' : m.status
@@ -117,6 +128,20 @@ function Card({ m }) {
               </p>
             </div>
           </section>
+
+          <button
+            type="button"
+            onClick={saveQr}
+            disabled={saving}
+            className="press mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-paper/8 font-semibold ring-1 ring-paper/12 hover:bg-paper/12 disabled:opacity-60"
+          >
+            <Download className="size-4 text-gold" aria-hidden="true" /> {saving ? 'Preparing…' : 'Save my QR to photos'}
+          </button>
+          <p className="mt-1.5 text-center text-xs text-ash">Works at the door even with no signal. Keep it to yourself; it's your pass.</p>
+          {/* Off-screen high-res copy used for the saved image. */}
+          <div hidden>
+            <QRCodeCanvas ref={qrCanvas} value={token} size={1024} level="M" marginSize={3} fgColor="#19171B" bgColor="#FFFFFF" imageSettings={{ src: '/assets/icon-192.png', width: 144, height: 144, excavate: true }} />
+          </div>
 
           {m.ends_on && (
             <section className="mt-4 rounded-2xl bg-ink-2 p-5 ring-1 ring-paper/5">
@@ -228,68 +253,81 @@ function Qr({ value }) {
   )
 }
 
-// Signed in, but no gym record on this account yet.
+// Signed in, but no gym record on this account yet. Name + mobile is enough: the
+// database links them to the front desk's record when the mobile and first name
+// match, or makes them a new member. Only an unclear match asks for the gym code.
 function Onboard() {
   const { refresh, signOut } = useAuth()
-  const [mode, setMode] = useState('link')
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState(null) // which button is working
   const [error, setError] = useState(null)
+  const [who, setWho] = useState(null) // { name, phone } once the code is needed
 
-  const submit = async (e) => {
+  const start = async (e) => {
     e.preventDefault()
     const f = new FormData(e.currentTarget)
     if (!f.get('adult')) return setError('Members under 18 need a parent or guardian to agree. Tick the age box once they do.')
     if (!f.get('consent')) return setError('Tick the box to agree to the privacy notice.')
-    setBusy(true)
+    const name = String(f.get('name')), phone = String(f.get('phone'))
+    setBusy('start')
     setError(null)
-    const { data, error } =
-      mode === 'link'
-        ? await supabase.rpc('member_link', { p_code: f.get('code'), p_phone: f.get('phone'), p_consent: CONSENT_VERSION })
-        : await supabase.rpc('member_join', { p_full_name: f.get('name'), p_phone: f.get('phone'), p_consent: CONSENT_VERSION })
-    setBusy(false)
+    const { data, error } = await supabase.rpc('member_start', { p_full_name: name, p_phone: phone, p_consent: CONSENT_VERSION })
+    setBusy(null)
     if (error) return setError(message(error))
-    if (!data) return setError(`That gym code and mobile number don't match a member we can link. Check both, or ask the front desk (${GYM.phone}).`)
+    if (data?.result === 'need_code') return setWho({ name, phone })
     refresh()
   }
 
-  return (
-    <AuthShell
-      title="Set up your pass"
-      lead="Your email is confirmed. One last step."
-      footer={
-        <button type="button" onClick={signOut} className="font-semibold text-paper underline decoration-gold decoration-2 underline-offset-4">
-          Sign out
-        </button>
-      }
-    >
-      <div role="tablist" aria-label="Are you already a member?" className="grid grid-cols-2 rounded-full bg-ink-2 p-1 ring-1 ring-paper/8">
-        {[
-          ['link', "I'm a member"],
-          ['join', "I'm new"],
-        ].map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={mode === k}
-            onClick={() => (setMode(k), setError(null))}
-            className="relative rounded-full py-2.5 text-sm font-bold uppercase tracking-[0.08em]"
-          >
-            {mode === k && <motion.span layoutId="onboard-pill" className="absolute inset-0 rounded-full bg-gold" transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }} />}
-            <span className={`relative transition-colors duration-150 ${mode === k ? 'text-ink' : 'text-ash'}`}>{label}</span>
-          </button>
-        ))}
-      </div>
+  const link = async (e) => {
+    e.preventDefault()
+    setBusy('link')
+    setError(null)
+    const { data, error } = await supabase.rpc('member_link', { p_code: gymCode(new FormData(e.currentTarget).get('code')), p_phone: who.phone, p_consent: CONSENT_VERSION })
+    setBusy(null)
+    if (error) return setError(message(error))
+    if (!data) return setError(`That code doesn't match a member with this mobile number. Check the code, or ask the front desk (${GYM.phone}).`)
+    refresh()
+  }
 
-      <form key={mode} onSubmit={submit} className="mt-6 space-y-4">
-        {mode === 'link' ? (
-          <>
-            <p className="text-sm text-ash">Use the gym code on your card or receipt and the mobile number the front desk has for you.</p>
-            <Field label="Gym code" name="code" placeholder="CRDFH26-0012" autoCapitalize="characters" autoComplete="off" spellCheck={false} required />
-          </>
-        ) : (
-          <Field label="Full name" name="name" autoComplete="name" maxLength={80} required />
-        )}
+  const join = async () => {
+    setBusy('join')
+    setError(null)
+    const { error } = await supabase.rpc('member_join', { p_full_name: who.name, p_phone: who.phone, p_consent: CONSENT_VERSION })
+    setBusy(null)
+    if (error) return setError(message(error))
+    refresh()
+  }
+
+  const footer = (
+    <button type="button" onClick={signOut} className="font-semibold text-paper underline decoration-gold decoration-2 underline-offset-4">
+      Sign out
+    </button>
+  )
+
+  if (who)
+    return (
+      <AuthShell title="One more check" lead={`We have ${who.phone} on file, but under a different name. To link the right membership, enter your gym code.`} footer={footer}>
+        <form onSubmit={link} className="space-y-4">
+          <CodeField />
+          <Notice>{error}</Notice>
+          <Submit busy={busy === 'link'}>Link my membership</Submit>
+        </form>
+        <div className="mt-8 rounded-xl bg-ink-2 p-5 ring-1 ring-paper/8">
+          <p className="font-semibold">Never been a member here?</p>
+          <p className="mt-1 text-sm text-ash">For example, you share this number with family. Start your own membership instead.</p>
+          <button type="button" onClick={join} disabled={busy !== null} className="press mt-4 h-11 w-full rounded-lg font-semibold ring-1 ring-paper/15 disabled:opacity-60">
+            {busy === 'join' ? 'Creating…' : "I'm new here"}
+          </button>
+        </div>
+        <button type="button" onClick={() => (setWho(null), setError(null))} className="mt-6 text-sm font-semibold text-ash underline underline-offset-4">
+          Back
+        </button>
+      </AuthShell>
+    )
+
+  return (
+    <AuthShell title="Set up your pass" lead="Your email is confirmed. Already a member at the front desk? Use the mobile number they have for you, and we'll find your membership." footer={footer}>
+      <form onSubmit={start} className="space-y-4">
+        <Field label="Full name" name="name" autoComplete="name" maxLength={80} required />
         <Field label="Mobile number" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="0917 123 4567" required />
         <label className="flex gap-3 text-sm text-ash">
           <input type="checkbox" name="adult" className="mt-0.5 size-5 shrink-0 accent-gold" />
@@ -302,12 +340,48 @@ function Onboard() {
           </span>
         </label>
         <Notice>{error}</Notice>
-        <Submit busy={busy}>{mode === 'link' ? 'Link my membership' : 'Create my pass'}</Submit>
+        <Submit busy={busy === 'start'}>Get my pass</Submit>
         <p className="flex items-center justify-center gap-1.5 text-xs text-ash">
           <ShieldCheck className="size-4 text-gold" aria-hidden="true" /> Only the front desk can see your details.
         </p>
       </form>
     </AuthShell>
+  )
+}
+
+// What a member types after the fixed CRDFH: "26-0012", "260012" or the whole code all work.
+const gymCode = (typed) => {
+  const t = String(typed ?? '').toUpperCase().replace(/\s/g, '').replace(/^CRDFH-?/, '')
+  const m = t.match(/^(\d{2})-?(\d+)$/)
+  return m ? `CRDFH${m[1]}-${m[2]}` : `CRDFH${t}`
+}
+
+function CodeField() {
+  return (
+    <div>
+      <label htmlFor="gym-code" className="block text-sm font-semibold">
+        Gym code
+      </label>
+      <div className="mt-1.5 flex h-12 overflow-hidden rounded-lg bg-ink-2 ring-1 ring-paper/12 transition-shadow duration-150 focus-within:ring-2 focus-within:ring-gold">
+        <span className="tabular grid place-items-center bg-paper/6 px-3.5 font-semibold text-ash" aria-hidden="true">
+          CRDFH
+        </span>
+        <input
+          id="gym-code"
+          name="code"
+          required
+          inputMode="numeric"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="26-0012"
+          aria-describedby="gym-code-hint"
+          className="tabular min-w-0 flex-1 bg-transparent px-3 text-base text-paper placeholder:text-ash/60 focus:outline-none"
+        />
+      </div>
+      <p id="gym-code-hint" className="mt-1.5 text-xs text-ash">
+        On your gym card or receipt, e.g. CRDFH26-0012. Just type the numbers.
+      </p>
+    </div>
   )
 }
 
