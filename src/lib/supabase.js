@@ -7,6 +7,8 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY
 // comes back as #error_description=... and we want to say so on screen.
 const hash = new URLSearchParams(window.location.hash.slice(1))
 export const linkError = hash.get('error_description')?.replace(/\+/g, ' ') ?? null
+// 'invite' when a member opens the email the front desk sent from the POS.
+export const linkType = hash.get('type')
 
 export const configured = Boolean(url && key)
 // Implicit flow, so an email link opened on another phone or laptop still signs in

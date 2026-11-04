@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { MailCheck } from 'lucide-react'
-import { linkError, message, supabase } from '../lib/supabase.js'
+import { linkError, linkType, message, supabase } from '../lib/supabase.js'
 import { useAuth } from '../auth.jsx'
 import { AuthShell, Field, Notice, Submit, TextLink } from '../components/form.jsx'
 
@@ -175,7 +175,10 @@ export function Reset() {
   })
 
   return (
-    <AuthShell title="New password" lead={`For ${session.user.email}.`}>
+    <AuthShell
+      title={linkType === 'invite' ? 'Welcome' : 'New password'}
+      lead={linkType === 'invite' ? `The front desk set up your CourageD pass. Choose a password for ${session.user.email}.` : `For ${session.user.email}.`}
+    >
       <form onSubmit={submit} className="space-y-4">
         <Field label="New password" name="password" type="password" autoComplete="new-password" minLength={MIN} hint={`At least ${MIN} characters.`} required />
         <Field label="New password again" name="confirm" type="password" autoComplete="new-password" minLength={MIN} required />

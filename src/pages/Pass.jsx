@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import { QRCodeSVG } from 'qrcode.react'
-import { Expand, LogOut, RefreshCw, ShieldCheck, X } from 'lucide-react'
+import { CalendarCheck, CreditCard, Expand, LogOut, RefreshCw, ShieldCheck, X } from 'lucide-react'
 import { CONSENT_VERSION, message, supabase } from '../lib/supabase.js'
 import { useAuth } from '../auth.jsx'
 import { CountUp, EASE_OUT, StatusBadge, fmtDate } from '../components/ui.jsx'
@@ -27,6 +27,7 @@ export default function Pass() {
     )
   if (member === undefined) return <PassSkeleton />
   if (member === null) return <Onboard />
+  if (!member.consented) return <Consent />
   return <Card m={member} />
 }
 
@@ -136,6 +137,16 @@ function Card({ m }) {
               </div>
             </section>
           )}
+
+          <section className="mt-4 flex items-start gap-3 rounded-2xl bg-ink-2 p-5 ring-1 ring-paper/5">
+            <CreditCard className="mt-0.5 size-5 shrink-0 text-gold" aria-hidden="true" />
+            <div>
+              <h2 className="font-semibold">Pay online: coming soon</h2>
+              <p className="mt-1 text-sm text-ash">For now, renew at the front desk with cash or GCash. They scan this pass, and your new end date shows here right away.</p>
+            </div>
+          </section>
+
+          <Visits />
 
           <dl className="mt-4 divide-y divide-paper/8 rounded-2xl bg-ink-2 px-5 ring-1 ring-paper/5">
             <Row label="Annual membership">
@@ -284,6 +295,88 @@ function Onboard() {
         <p className="flex items-center justify-center gap-1.5 text-xs text-ash">
           <ShieldCheck className="size-4 text-gold" aria-hidden="true" /> Only the front desk can see your details.
         </p>
+      </form>
+    </AuthShell>
+  )
+}
+
+// Check-ins logged by the front desk scanner (POS patch 019).
+function Visits() {
+  const [visits, setVisits] = useState(null)
+  useEffect(() => {
+    supabase.rpc('member_visits').then(({ data, error }) => setVisits(error ? [] : data))
+  }, [])
+  const today = manilaToday()
+  const dayOf = (t) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date(t))
+  const month = visits?.filter((v) => dayOf(v.checked_at).slice(0, 7) === today.slice(0, 7)).length ?? 0
+  const label = (t) => {
+    const d = dayNo(today) - dayNo(dayOf(t))
+    return d === 0 ? 'Today' : d === 1 ? 'Yesterday' : fmtDate(t, { timeZone: 'Asia/Manila', weekday: 'short', month: 'short', day: 'numeric' })
+  }
+  return (
+    <section className="mt-4 rounded-2xl bg-ink-2 p-5 ring-1 ring-paper/5">
+      <div className="flex items-baseline justify-between">
+        <h2 className="font-display text-2xl font-extrabold uppercase">Recent visits</h2>
+        {visits?.length > 0 && (
+          <p className="tabular text-sm text-ash">
+            <span className="font-bold text-gold">{month}</span> this month
+          </p>
+        )}
+      </div>
+      {!visits && <div className="mt-4 h-16 animate-pulse rounded-lg bg-paper/5" aria-label="Loading visits" />}
+      {visits?.length === 0 && <p className="mt-3 text-ash">No visits yet. Your first check-in will show up here.</p>}
+      <ol className="mt-2 divide-y divide-paper/8">
+        {visits?.slice(0, 8).map((v, k) => (
+          <motion.li
+            key={v.checked_at}
+            className="flex items-center gap-3 py-2.5"
+            initial={{ opacity: 0, transform: 'translateX(-8px)' }}
+            animate={{ opacity: 1, transform: 'translateX(0px)' }}
+            transition={{ duration: 0.25, delay: k * 0.04, ease: EASE_OUT }}
+          >
+            <CalendarCheck className="size-4 text-gold" aria-hidden="true" />
+            <span className="flex-1 font-semibold">{label(v.checked_at)}</span>
+            <span className="tabular text-ash">{new Date(v.checked_at).toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' })}</span>
+          </motion.li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+// Members invited from the POS: their record is linked, but they haven't agreed to the privacy notice yet.
+function Consent() {
+  const { refresh, signOut } = useAuth()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!new FormData(e.currentTarget).get('consent')) return setError('Tick the box to agree to the privacy notice.')
+    setBusy(true)
+    const { error } = await supabase.rpc('member_consent', { p_consent: CONSENT_VERSION })
+    setBusy(false)
+    if (error) return setError(message(error))
+    refresh()
+  }
+  return (
+    <AuthShell
+      title="One last step"
+      lead="Before we show your pass, please read how we look after your details."
+      footer={
+        <button type="button" onClick={signOut} className="font-semibold text-paper underline decoration-gold decoration-2 underline-offset-4">
+          Sign out
+        </button>
+      }
+    >
+      <form onSubmit={submit} className="space-y-4">
+        <label className="flex gap-3 text-sm text-ash">
+          <input type="checkbox" name="consent" className="mt-0.5 size-5 shrink-0 accent-gold" />
+          <span>
+            I agree to the <TextLink to="/privacy">privacy notice</TextLink>: CourageD keeps my name, email, mobile number and visits to run my membership.
+          </span>
+        </label>
+        <Notice>{error}</Notice>
+        <Submit busy={busy}>Show my pass</Submit>
       </form>
     </AuthShell>
   )
