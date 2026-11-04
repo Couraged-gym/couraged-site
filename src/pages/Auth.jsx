@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { MailCheck } from 'lucide-react'
-import { linkError, linkType, message, remembers, setRemember, supabase } from '../lib/supabase.js'
+import { linkError, linkExpired, linkType, message, remembers, setRemember, supabase } from '../lib/supabase.js'
 import { useAuth } from '../auth.jsx'
 import { AuthShell, Field, Notice, Submit, TextLink } from '../components/form.jsx'
 
@@ -35,7 +35,6 @@ export function SignIn() {
   const { session } = useAuth()
   const { busy, error, run } = useForm()
   const [unconfirmed, setUnconfirmed] = useState(null)
-  const [resent, setResent] = useState(false)
   if (session) return <Navigate to="/pass" replace />
 
   const submit = run(async (f) => {
@@ -45,11 +44,6 @@ export function SignIn() {
     setUnconfirmed(/email not confirmed/i.test(r.error?.message ?? '') ? email : null)
     check(r)
   })
-  const resend = async () => {
-    await supabase.auth.resend({ type: 'signup', email: unconfirmed, options: { emailRedirectTo: `${origin()}/pass` } })
-    setResent(true)
-  }
-
   return (
     <AuthShell
       title="Sign in"
@@ -60,8 +54,9 @@ export function SignIn() {
         </>
       }
     >
+      {linkExpired && <ExpiredLink />}
       <form onSubmit={submit} className="space-y-4">
-        <Notice>{linkError}</Notice>
+        {!linkExpired && <Notice>{linkError}</Notice>}
         <Field label="Email" name="email" type="email" autoComplete="username" inputMode="email" required />
         <Field label="Password" name="password" type="password" autoComplete="current-password" required />
         <label className="flex items-center gap-3 text-sm text-ash">
@@ -69,11 +64,7 @@ export function SignIn() {
           Keep me signed in on this device
         </label>
         <Notice>{error}</Notice>
-        {unconfirmed && (
-          <button type="button" onClick={resend} disabled={resent} className="text-sm font-semibold text-gold underline underline-offset-4 disabled:no-underline disabled:opacity-70">
-            {resent ? 'Sent. Check your inbox and spam folder.' : 'Send the confirmation email again'}
-          </button>
-        )}
+        {unconfirmed && <Resend send={() => confirmAgain(unconfirmed)} label="Send the confirmation email again" />}
         <Submit busy={busy}>Sign in</Submit>
         <p className="text-center text-sm">
           <TextLink to="/forgot">Forgot your password?</TextLink>
@@ -88,7 +79,7 @@ export function SignUp() {
   const { busy, error, setError, run } = useForm()
   const [sentTo, setSentTo] = useState(null)
   if (session) return <Navigate to="/pass" replace />
-  if (sentTo) return <CheckEmail email={sentTo} what="confirm your email and finish setting up your pass" />
+  if (sentTo) return <CheckEmail email={sentTo} what="confirm your email and finish setting up your pass" send={() => confirmAgain(sentTo)} />
 
   const submit = run(async (f) => {
     const email = String(f.get('email')).trim()
@@ -130,11 +121,11 @@ export function SignUp() {
 export function Forgot() {
   const { busy, error, run } = useForm()
   const [sentTo, setSentTo] = useState(null)
-  if (sentTo) return <CheckEmail email={sentTo} what="set a new password" generic />
+  if (sentTo) return <CheckEmail email={sentTo} what="set a new password" generic send={() => resetLink(sentTo)} />
 
   const submit = run(async (f) => {
     const email = String(f.get('email')).trim()
-    check(await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${origin()}/reset` }))
+    check(await resetLink(email))
     setSentTo(email)
   })
 
@@ -196,7 +187,7 @@ export function Reset() {
   )
 }
 
-function CheckEmail({ email, what, generic }) {
+function CheckEmail({ email, what, generic, send }) {
   return (
     <AuthShell
       title="Check your email"
@@ -215,6 +206,80 @@ function CheckEmail({ email, what, generic }) {
           {what}. It can take a minute; check spam too.
         </p>
       </div>
+      <div className="mt-5">
+        <Resend send={send} label="Didn't get it? Send it again" cooldownFirst />
+      </div>
     </AuthShell>
+  )
+}
+
+const confirmAgain = (email) => supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: `${origin()}/pass` } })
+const resetLink = (email) => supabase.auth.resetPasswordForEmail(email, { redirectTo: `${origin()}/reset` })
+
+// Supabase allows one email per address per 60 seconds, so the button counts down
+// instead of pretending. Shows what really happened, and can be used again.
+function Resend({ send, label, cooldownFirst = false }) {
+  const [left, setLeft] = useState(cooldownFirst ? 60 : 0)
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState(null) // { tone, text }
+  useEffect(() => {
+    if (left <= 0) return
+    const t = setTimeout(() => setLeft((s) => s - 1), 1000)
+    return () => clearTimeout(t)
+  }, [left])
+  const go = async () => {
+    setBusy(true)
+    setNote(null)
+    const { error } = await send()
+    setBusy(false)
+    if (error) {
+      const wait = error.message.match(/after (\d+) seconds?/i)
+      if (wait) setLeft(+wait[1])
+      return setNote({ tone: 'error', text: message(error) })
+    }
+    setLeft(60)
+    setNote({ tone: 'ok', text: 'Sent. Check your inbox and spam folder; the newest email is the one that works.' })
+  }
+  return (
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={go}
+        disabled={busy || left > 0}
+        className="text-sm font-semibold text-gold underline underline-offset-4 disabled:text-ash disabled:no-underline"
+      >
+        {busy ? 'Sending…' : left > 0 ? `${label} (in ${left}s)` : label}
+      </button>
+      {note && <Notice tone={note.tone}>{note.text}</Notice>}
+    </div>
+  )
+}
+
+// An expired confirmation link: ask for the email and send a fresh one, no password needed.
+function ExpiredLink() {
+  const [email, setEmail] = useState('')
+  const [sent, setSent] = useState(null)
+  if (sent)
+    return (
+      <div className="mb-8">
+        <Notice tone="ok">New link sent to {sent}. Open the newest email; older links won't work.</Notice>
+      </div>
+    )
+  return (
+    <div className="mb-8 space-y-4 rounded-xl bg-ink-2 p-5 ring-1 ring-paper/8">
+      <Notice>{linkError}</Notice>
+      <p className="text-sm text-ash">Signing up? Enter your email and we'll send a new confirmation link.</p>
+      <Field label="Your email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" inputMode="email" />
+      <Resend
+        label="Send a new confirmation link"
+        send={async () => {
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return { error: { message: 'Enter the email you signed up with.' } }
+          const r = await confirmAgain(email.trim())
+          if (!r.error) setSent(email.trim())
+          return r
+        }}
+      />
+      <p className="text-xs text-ash">Already confirmed? Just sign in below.</p>
+    </div>
   )
 }

@@ -6,7 +6,10 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY
 // Read before the client consumes the URL: an expired or reused email link
 // comes back as #error_description=... and we want to say so on screen.
 const hash = new URLSearchParams(window.location.hash.slice(1))
-export const linkError = hash.get('error_description')?.replace(/\+/g, ' ') ?? null
+const rawLinkError = hash.get('error_description')?.replace(/\+/g, ' ') ?? null
+// True when an email link was opened too late or a second time (Supabase: otp_expired).
+export const linkExpired = hash.get('error_code') === 'otp_expired' || /expired|invalid/i.test(rawLinkError ?? '')
+export const linkError = linkExpired ? 'That email link has expired or was already used. Links work once, for one hour.' : rawLinkError
 // 'invite' when a member opens the email the front desk sent from the POS.
 export const linkType = hash.get('type')
 
@@ -53,7 +56,9 @@ export function message(error) {
   if (/failed to fetch|network/i.test(m)) return 'No connection. Check your internet and try again.'
   if (/invalid login credentials/i.test(m)) return 'Wrong email or password.'
   if (/email not confirmed/i.test(m)) return 'Confirm your email first. We sent you a link when you signed up.'
-  if (/rate limit|too many/i.test(m) && !/Too many tries/.test(m)) return 'Too many attempts. Wait a few minutes and try again.'
+  const wait = m.match(/after (\d+) seconds?/i)
+  if (wait) return `Wait ${wait[1]} seconds, then send it again.`
+  if (/rate limit|too many/i.test(m) && !/Too many tries/.test(m)) return 'Too many emails or attempts. Wait a few minutes and try again.'
   if (/should be different/i.test(m)) return 'Pick a password you have not used here before.'
   if (/weak|pwned|leaked/i.test(m)) return 'That password is too easy to guess. Try a longer one.'
   return m
