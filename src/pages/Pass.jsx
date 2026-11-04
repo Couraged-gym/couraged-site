@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useLocation } from 'react-router'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import { QRCodeSVG } from 'qrcode.react'
-import { CalendarCheck, CreditCard, Expand, LogOut, RefreshCw, ShieldCheck, X } from 'lucide-react'
+import { BellRing, CalendarCheck, CreditCard, Expand, LogOut, ReceiptText, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-react'
 import { CONSENT_VERSION, message, supabase } from '../lib/supabase.js'
 import { useAuth } from '../auth.jsx'
 import { CountUp, EASE_OUT, StatusBadge, fmtDate } from '../components/ui.jsx'
@@ -148,6 +148,8 @@ function Card({ m }) {
 
           <Visits />
 
+          <Payments />
+
           <dl className="mt-4 divide-y divide-paper/8 rounded-2xl bg-ink-2 px-5 ring-1 ring-paper/5">
             <Row label="Annual membership">
               {m.member_until ? (memberLeft >= 0 ? `Until ${long(m.member_until)}` : `Ended ${long(m.member_until)}`) : 'Not yet'}
@@ -157,6 +159,8 @@ function Card({ m }) {
             <Row label="Member since">{long(m.joined)}</Row>
           </dl>
           <p className="mt-3 px-1 text-xs text-ash">To change your name or mobile number, ask the front desk.</p>
+
+          <Reminders on={m.reminders} />
 
           <button
             type="button"
@@ -169,6 +173,8 @@ function Card({ m }) {
           <p className="mt-4 text-center text-xs text-ash">
             <Link to="/privacy" className="underline underline-offset-4">Privacy notice</Link> · <Link to="/reset" className="underline underline-offset-4">Change password</Link>
           </p>
+
+          <DeleteAccount email={session.user.email} />
         </motion.div>
       </div>
 
@@ -232,6 +238,7 @@ function Onboard() {
   const submit = async (e) => {
     e.preventDefault()
     const f = new FormData(e.currentTarget)
+    if (!f.get('adult')) return setError('Members under 18 need a parent or guardian to agree. Tick the age box once they do.')
     if (!f.get('consent')) return setError('Tick the box to agree to the privacy notice.')
     setBusy(true)
     setError(null)
@@ -284,6 +291,10 @@ function Onboard() {
           <Field label="Full name" name="name" autoComplete="name" maxLength={80} required />
         )}
         <Field label="Mobile number" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="0917 123 4567" required />
+        <label className="flex gap-3 text-sm text-ash">
+          <input type="checkbox" name="adult" className="mt-0.5 size-5 shrink-0 accent-gold" />
+          <span>I'm 18 or older, or my parent or guardian agrees to this membership.</span>
+        </label>
         <label className="flex gap-3 text-sm text-ash">
           <input type="checkbox" name="consent" className="mt-0.5 size-5 shrink-0 accent-gold" />
           <span>
@@ -351,7 +362,9 @@ function Consent() {
   const [error, setError] = useState(null)
   const submit = async (e) => {
     e.preventDefault()
-    if (!new FormData(e.currentTarget).get('consent')) return setError('Tick the box to agree to the privacy notice.')
+    const f = new FormData(e.currentTarget)
+    if (!f.get('adult')) return setError('Members under 18 need a parent or guardian to agree. Tick the age box once they do.')
+    if (!f.get('consent')) return setError('Tick the box to agree to the privacy notice.')
     setBusy(true)
     const { error } = await supabase.rpc('member_consent', { p_consent: CONSENT_VERSION })
     setBusy(false)
@@ -370,6 +383,10 @@ function Consent() {
     >
       <form onSubmit={submit} className="space-y-4">
         <label className="flex gap-3 text-sm text-ash">
+          <input type="checkbox" name="adult" className="mt-0.5 size-5 shrink-0 accent-gold" />
+          <span>I'm 18 or older, or my parent or guardian agrees to this membership.</span>
+        </label>
+        <label className="flex gap-3 text-sm text-ash">
           <input type="checkbox" name="consent" className="mt-0.5 size-5 shrink-0 accent-gold" />
           <span>
             I agree to the <TextLink to="/privacy">privacy notice</TextLink>: CourageD keeps my name, email, mobile number and visits to run my membership.
@@ -379,5 +396,134 @@ function Consent() {
         <Submit busy={busy}>Show my pass</Submit>
       </form>
     </AuthShell>
+  )
+}
+
+const peso = (n) => '₱' + Number(n).toLocaleString('en-PH', { maximumFractionDigits: 2 })
+const METHOD = { cash: 'Cash', gcash: 'GCash', card: 'Card' }
+
+// Every plan paid, newest first, with the receipt number the front desk can look up.
+function Payments() {
+  const [rows, setRows] = useState(null)
+  useEffect(() => {
+    supabase.rpc('member_payments').then(({ data, error }) => setRows(error ? [] : data))
+  }, [])
+  return (
+    <section className="mt-4 rounded-2xl bg-ink-2 p-5 ring-1 ring-paper/5">
+      <h2 className="font-display text-2xl font-extrabold uppercase">Payments</h2>
+      {!rows && <div className="mt-4 h-16 animate-pulse rounded-lg bg-paper/5" aria-label="Loading payments" />}
+      {rows?.length === 0 && <p className="mt-3 text-ash">No payments yet. Plans you buy at the front desk show up here.</p>}
+      <ol className="mt-2 divide-y divide-paper/8">
+        {rows?.map((p, k) => (
+          <li key={k} className={`flex items-start gap-3 py-3 ${p.voided ? 'opacity-60' : ''}`}>
+            <ReceiptText className="mt-0.5 size-4 shrink-0 text-gold" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className={`font-semibold ${p.voided ? 'line-through' : ''}`}>{p.plan_name}</p>
+              <p className="tabular text-sm text-ash">
+                {long(p.starts_on)} – {long(p.ends_on)}
+              </p>
+              <p className="tabular text-xs text-ash">
+                {p.voided
+                  ? 'Cancelled at the front desk'
+                  : p.sale_no
+                    ? `Receipt #${String(p.sale_no).padStart(5, '0')} · ${long(p.paid_on)} · ${METHOD[p.payment_method] ?? p.payment_method}`
+                    : 'Paid before the online system'}
+              </p>
+            </div>
+            {p.amount != null && <p className={`tabular shrink-0 font-semibold ${p.voided ? 'line-through' : ''}`}>{peso(p.amount)}</p>}
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+function Reminders({ on: initial }) {
+  const [on, setOn] = useState(initial !== false)
+  const [busy, setBusy] = useState(false)
+  const toggle = async () => {
+    const next = !on
+    setOn(next) // optimistic; put back if it fails
+    setBusy(true)
+    const { error } = await supabase.rpc('member_set_reminders', { p_on: next })
+    setBusy(false)
+    if (error) setOn(!next)
+  }
+  return (
+    <div className="mt-4 flex items-center gap-4 rounded-2xl bg-ink-2 p-5 ring-1 ring-paper/5">
+      <BellRing className="size-5 shrink-0 text-gold" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <p id="rem-label" className="font-semibold">Renewal reminders</p>
+        <p className="text-sm text-ash">An email 3 days before your plan ends, and one the day after.</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-labelledby="rem-label"
+        disabled={busy}
+        onClick={toggle}
+        className={`relative h-8 w-14 shrink-0 rounded-full transition-colors duration-200 ${on ? 'bg-gold' : 'bg-paper/15'}`}
+      >
+        <span className={`absolute top-1 left-1 size-6 rounded-full bg-paper shadow transition-transform duration-200 ease-[var(--ease-out)] ${on ? 'translate-x-6' : ''}`} />
+      </button>
+    </div>
+  )
+}
+
+// Removes the login; the gym keeps the membership and payment records it must keep.
+function DeleteAccount({ email }) {
+  const { signOut } = useAuth()
+  const nav = useNavigate()
+  const [open, setOpen] = useState(false)
+  const [typed, setTyped] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const go = async (e) => {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    const { error } = await supabase.rpc('member_delete_account')
+    if (error) return setBusy(false), setError(message(error))
+    await signOut().catch(() => {})
+    nav('/', { replace: true })
+  }
+  return (
+    <section className="mt-10 border-t border-paper/10 pt-6">
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)} className="mx-auto flex items-center gap-2 text-sm font-semibold text-ash hover:text-[#FF9AA8]">
+          <Trash2 className="size-4" aria-hidden="true" /> Delete my online account
+        </button>
+      ) : (
+        <motion.form
+          onSubmit={go}
+          initial={{ opacity: 0, transform: 'translateY(6px)' }}
+          animate={{ opacity: 1, transform: 'translateY(0px)' }}
+          transition={{ duration: 0.2, ease: EASE_OUT }}
+          className="space-y-4 rounded-2xl p-5 ring-1 ring-crimson/50"
+        >
+          <h2 className="font-display text-2xl font-extrabold uppercase">Delete online account?</h2>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-ash">
+            <li>Your login, email and this QR pass are removed. You can sign up again later.</li>
+            <li>Your gym membership itself stays: the front desk can still check you in with your gym code.</li>
+            <li>Payment and membership records stay as long as tax rules require.</li>
+          </ul>
+          <Field label="Type your email to confirm" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" spellCheck={false} />
+          <Notice>{error}</Notice>
+          <div className="flex gap-3">
+            <button type="button" onClick={() => (setOpen(false), setTyped(''))} className="press h-12 flex-1 rounded-lg font-semibold ring-1 ring-paper/15">
+              Keep it
+            </button>
+            <button
+              type="submit"
+              disabled={busy || typed.trim().toLowerCase() !== email.toLowerCase()}
+              className="press h-12 flex-1 rounded-lg bg-crimson font-display text-lg font-extrabold uppercase tracking-[0.04em] text-paper disabled:opacity-40"
+            >
+              {busy ? 'Deleting…' : 'Delete'}
+            </button>
+          </div>
+        </motion.form>
+      )}
+    </section>
   )
 }

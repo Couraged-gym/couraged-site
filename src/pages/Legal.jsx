@@ -34,11 +34,12 @@ export function Privacy() {
         <li>Membership: your full name, mobile number, gym code, plans bought, start and end dates.</li>
         <li>Visits: the date and time you check in with your QR code.</li>
         <li>Payments: what you paid, how (cash, GCash or card), and a payment reference. We never receive or store your card number.</li>
+        <li>Age: that you are 18 or older, or that a parent or guardian agrees to your membership.</li>
       </ul>
 
       <H>Why, and on what basis</H>
       <p>
-        To create and run your membership, let you into the gym, record payments and issue receipts, and contact you about your membership. The basis is the
+        To create and run your membership, let you into the gym, record payments and issue receipts, and contact you about your membership, including a reminder email before your plan ends (you can turn these off on your pass). The basis is the
         contract you enter when you join (Sec. 12(b), RA 10173) and our legal duty to keep tax records (Sec. 12(c)). We ask for your consent when you set up your
         pass. We do not sell your data or use it for advertising.
       </p>
@@ -52,7 +53,7 @@ export function Privacy() {
 
       <H>How long we keep it</H>
       <p>
-        Your account stays while you are a member. If you close it, we delete your sign-in account and stop using your details for anything else, but keep
+        Your account stays while you are a member. You can delete it yourself from your pass at any time. When you do, we delete your sign-in account and stop using your details for anything else, but keep
         membership and payment records for as long as Philippine tax and accounting rules require, then delete them.
       </p>
 
@@ -71,7 +72,7 @@ export function Privacy() {
 
       <H>Contact us</H>
       <p>
-        Data Protection Officer: {dpo.name}, <a className="font-semibold underline underline-offset-4" href={`mailto:${dpo.email}`}>{dpo.email}</a>, {GYM.phone}. If
+        Our Data Protection Officer: <a className="font-semibold underline underline-offset-4" href={`mailto:${dpo.email}`}>{dpo.email}</a>, {GYM.phone}. If
         you are not satisfied with our answer, you can complain to the National Privacy Commission (privacy.gov.ph).
       </p>
     </Page>

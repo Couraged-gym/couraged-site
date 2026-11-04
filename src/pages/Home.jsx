@@ -12,7 +12,7 @@ import {
   useVelocity,
 } from 'motion/react'
 import { animate, createScope, stagger } from 'animejs'
-import { AirVent, ArrowLeft, ArrowRight, ArrowUpRight, Car, Clock, Droplets, MapPin, MessageCircle, Phone, ShowerHead, UserRound, Wifi } from 'lucide-react'
+import { AirVent, ArrowLeft, ArrowRight, ArrowUpRight, Car, Clock, Droplets, MapPin, Mail, MessageCircle, Phone, ShowerHead, UserRound, Wifi } from 'lucide-react'
 import { Link } from 'react-router'
 import { AMENITIES, COACHES, GYM, openStatus, peso } from '../data/gym.js'
 import { supabase } from '../lib/supabase.js'
@@ -730,6 +730,9 @@ function Visit() {
             </a>
             <a href={GYM.facebook} target="_blank" rel="noreferrer" className="press inline-flex items-center gap-2 rounded-md border border-ink/15 px-4 py-3 font-semibold">
               <MessageCircle className="size-4 text-crimson" aria-hidden="true" /> couragedfitnesshub
+            </a>
+            <a href={`mailto:${GYM.email}`} className="press inline-flex items-center gap-2 rounded-md border border-ink/15 px-4 py-3 font-semibold">
+              <Mail className="size-4 text-crimson" aria-hidden="true" /> {GYM.email}
             </a>
           </div>
         </div>

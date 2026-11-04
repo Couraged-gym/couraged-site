@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { MailCheck } from 'lucide-react'
-import { linkError, linkType, message, supabase } from '../lib/supabase.js'
+import { linkError, linkType, message, remembers, setRemember, supabase } from '../lib/supabase.js'
 import { useAuth } from '../auth.jsx'
 import { AuthShell, Field, Notice, Submit, TextLink } from '../components/form.jsx'
 
@@ -40,6 +40,7 @@ export function SignIn() {
 
   const submit = run(async (f) => {
     const email = String(f.get('email')).trim()
+    setRemember(f.get('remember') === 'on')
     const r = await supabase.auth.signInWithPassword({ email, password: String(f.get('password')) })
     setUnconfirmed(/email not confirmed/i.test(r.error?.message ?? '') ? email : null)
     check(r)
@@ -61,8 +62,12 @@ export function SignIn() {
     >
       <form onSubmit={submit} className="space-y-4">
         <Notice>{linkError}</Notice>
-        <Field label="Email" name="email" type="email" autoComplete="email" inputMode="email" required />
+        <Field label="Email" name="email" type="email" autoComplete="username" inputMode="email" required />
         <Field label="Password" name="password" type="password" autoComplete="current-password" required />
+        <label className="flex items-center gap-3 text-sm text-ash">
+          <input type="checkbox" name="remember" defaultChecked={remembers()} className="size-5 shrink-0 accent-gold" />
+          Keep me signed in on this device
+        </label>
         <Notice>{error}</Notice>
         {unconfirmed && (
           <button type="button" onClick={resend} disabled={resent} className="text-sm font-semibold text-gold underline underline-offset-4 disabled:no-underline disabled:opacity-70">
@@ -112,7 +117,7 @@ export function SignUp() {
       }
     >
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Email" name="email" type="email" autoComplete="email" inputMode="email" required />
+        <Field label="Email" name="email" type="email" autoComplete="username" inputMode="email" required />
         <Field label="Password" name="password" type="password" autoComplete="new-password" minLength={MIN} hint={`At least ${MIN} characters. A short phrase is easier to remember.`} required />
         <Field label="Password again" name="confirm" type="password" autoComplete="new-password" minLength={MIN} required />
         <Notice>{error}</Notice>
@@ -180,6 +185,8 @@ export function Reset() {
       lead={linkType === 'invite' ? `The front desk set up your CourageD pass. Choose a password for ${session.user.email}.` : `For ${session.user.email}.`}
     >
       <form onSubmit={submit} className="space-y-4">
+        {/* Lets the browser save the new password against the right email. */}
+        <input type="email" autoComplete="username" value={session.user.email} readOnly hidden />
         <Field label="New password" name="password" type="password" autoComplete="new-password" minLength={MIN} hint={`At least ${MIN} characters.`} required />
         <Field label="New password again" name="confirm" type="password" autoComplete="new-password" minLength={MIN} required />
         <Notice>{error}</Notice>

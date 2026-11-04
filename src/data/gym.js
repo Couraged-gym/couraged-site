@@ -7,6 +7,7 @@ export const GYM = {
   mapsQuery: 'CRD Bldg Miñoza St Talamban Cebu City',
   phone: '0933 816 9412',
   phoneHref: 'tel:+639338169412',
+  email: 'couragedph@gmail.com',
   facebook: 'https://www.facebook.com/couragedfitnesshub',
   // Day 0 = Sunday. Times in 24h "HH:MM".
   hours: [
@@ -29,7 +30,7 @@ export const GYM = {
 // Legal pages. The owner must fill in the DPO before launch (see README › Launch checklist).
 export const LEGAL = {
   owner: 'CourageD Fitness Hub', // registered business name on the DTI/SEC certificate
-  dpo: { name: 'TO FILL: Data Protection Officer name', email: 'TO FILL: privacy email' },
+  dpo: { email: 'couragedph@gmail.com' },
   privacyUpdated: 'November 4, 2026',
   termsUpdated: 'November 4, 2026',
   refunds: "If you can't use a plan you paid for, talk to the front desk; refunds are handled case by case and as the law requires.",
