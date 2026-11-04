@@ -26,14 +26,16 @@ export const GYM = {
   },
 }
 
-// Membership prices in PHP. Edit here; the home page, admin and mock revenue all read from this.
-export const PLANS = {
-  'Day Pass': { days: 1, price: 100, placeholder: true },
-  Monthly: { days: 30, price: 1200, placeholder: true },
-  Quarterly: { days: 90, price: 3200, placeholder: true },
-  Annual: { days: 365, price: 11000, placeholder: true },
+// Legal pages. The owner must fill in the DPO before launch (see README › Launch checklist).
+export const LEGAL = {
+  owner: 'CourageD Fitness Hub', // registered business name on the DTI/SEC certificate
+  dpo: { name: 'TO FILL: Data Protection Officer name', email: 'TO FILL: privacy email' },
+  privacyUpdated: 'November 4, 2026',
+  termsUpdated: 'November 4, 2026',
+  refunds: "If you can't use a plan you paid for, talk to the front desk; refunds are handled case by case and as the law requires.",
 }
-export const MEMBER_PLANS = ['Monthly', 'Quarterly', 'Annual']
+
+// Prices are not here: the website reads them live from the POS (Members › Plans).
 
 export const COACHES = [
   {
