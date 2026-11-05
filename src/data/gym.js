@@ -31,7 +31,7 @@ export const GYM = {
 export const LEGAL = {
   owner: 'CourageD Fitness Hub', // registered business name on the DTI/SEC certificate
   dpo: { email: 'couragedph@gmail.com' },
-  privacyUpdated: 'November 4, 2026',
+  privacyUpdated: 'November 5, 2026',
   termsUpdated: 'November 4, 2026',
   refunds: "If you can't use a plan you paid for, talk to the front desk; refunds are handled case by case and as the law requires.",
 }

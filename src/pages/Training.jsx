@@ -4,7 +4,10 @@ import { Check, Copy, Dumbbell, Eye, Flame, Medal, Share2, Trash2, Trophy, UserM
 import { message, supabase } from '../lib/supabase.js'
 import { useAuth } from '../auth.jsx'
 import { EASE_OUT, dayNo, long, manilaToday } from '../components/ui.jsx'
-import { CodeField, Field, Notice, Submit, Toggle, gymCode } from '../components/form.jsx'
+import { Field, Notice, Submit, Toggle } from '../components/form.jsx'
+
+// 'K7PQ2M' -> 'K7P-Q2M'
+const fmtFriendCode = (c) => (c ? `${c.slice(0, 3)}-${c.slice(3)}` : '')
 
 const ago = (iso) => {
   const d = dayNo(manilaToday()) - dayNo(iso)
@@ -227,16 +230,17 @@ export function Friends({ m }) {
     setBusy(true)
     setError(null)
     setSent(null)
-    const { data, error } = await supabase.rpc('friend_request', { p_code: gymCode(new FormData(form).get('code')) })
+    const { data, error } = await supabase.rpc('friend_request', { p_code: String(new FormData(form).get('code')) })
     setBusy(false)
     if (error) return setError(message(error))
+    if (data.result === 'not_found') return setError("No member has that friend code. Check it with your friend and try again.")
     form.reset()
     setSent(
-      data.result === 'sent'
-        ? `Request sent to ${data.name}. They'll see it on their Friends tab.`
-        : data.result === 'accepted'
-          ? `You and ${data.name} are now friends.`
-          : `You're already connected with ${data.name}.`,
+      data.result === 'accepted'
+        ? `You and ${data.name} are now friends.`
+        : data.result === 'already'
+          ? `You and ${data.name} are already friends.`
+          : "Request sent. They'll show up here once they accept.",
     )
     load()
   }
@@ -248,10 +252,10 @@ export function Friends({ m }) {
   }
 
   const share = async () => {
-    const text = `Add me as a friend on the CourageD app. My code: ${m.code}`
+    const text = `Add me as a friend on the CourageD app. My friend code: ${fmtFriendCode(m.friend_code)}`
     try {
       if (navigator.share) return await navigator.share({ text })
-      await navigator.clipboard.writeText(m.code)
+      await navigator.clipboard.writeText(fmtFriendCode(m.friend_code))
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
     } catch {
@@ -278,7 +282,8 @@ export function Friends({ m }) {
       <section className="mt-4 flex items-center gap-3 rounded-2xl bg-paper p-4 text-ink">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold uppercase tracking-[0.1em] text-smoke">Your friend code</p>
-          <p className="tabular font-display text-2xl font-black">{m.code}</p>
+          <p className="tabular font-display text-3xl font-black tracking-[0.06em]">{fmtFriendCode(m.friend_code)}</p>
+          <p className="text-xs text-smoke">Only for friends. Keep your gym code to yourself.</p>
         </div>
         <button type="button" onClick={share} className="press flex h-11 items-center gap-2 rounded-lg bg-ink px-4 font-semibold text-paper">
           {copied ? <Check className="size-4" aria-hidden="true" /> : navigator.share ? <Share2 className="size-4" aria-hidden="true" /> : <Copy className="size-4" aria-hidden="true" />}
@@ -288,7 +293,18 @@ export function Friends({ m }) {
 
       <Panel title="Add a friend">
         <form onSubmit={add} className="mt-4 space-y-4">
-          <CodeField label="Friend's code" hint="It's under their name on their pass and on their Friends tab." />
+          <Field
+            label="Friend's code"
+            name="code"
+            required
+            maxLength={8}
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            placeholder="K7P-Q2M"
+            hint="On their Friends tab, at the top."
+            className="tabular h-12 w-full rounded-lg bg-ink-2 px-3.5 text-base uppercase tracking-[0.08em] text-paper ring-1 ring-paper/12 placeholder:text-ash/60 focus:ring-2 focus:ring-gold focus:outline-none"
+          />
           <Notice>{error}</Notice>
           <Notice tone="ok">{sent}</Notice>
           <Submit busy={busy}>

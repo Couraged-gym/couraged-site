@@ -35,18 +35,28 @@ export function Privacy() {
         <li>Visits: the date and time you check in with your QR code.</li>
         <li>Payments: what you paid, how (cash, GCash or card), and a payment reference. We never receive or store your card number.</li>
         <li>Age: that you are 18 or older, or that a parent or guardian agrees to your membership.</li>
+        <li>Lifts, if you log them: exercise, weight, reps, date and any note. Only you can see them; our staff cannot.</li>
+        <li>Friends, if you add any: who you are friends with, and the two sharing choices below.</li>
       </ul>
+
+      <H>Friends and what they see</H>
+      <p>
+        Friends are other members you add with their friend code, and who accept. A friend sees only your first name and last initial. Two switches on your
+        pass, both off until you turn them on, decide anything more: <strong>Share my visits</strong> shows friends whether you trained today and the date of your
+        last visit; <strong>Share my lifts</strong> puts your best sets on their leaderboard. You can turn either off, or remove a friend, at any time, and it
+        takes effect straight away. Someone who sends you a request learns nothing about you unless you accept.
+      </p>
 
       <H>Why, and on what basis</H>
       <p>
-        To create and run your membership, let you into the gym, record payments and issue receipts, and contact you about your membership, including a reminder email before your plan ends (you can turn these off on your pass). The basis is the
+        To create and run your membership, let you into the gym, record payments and issue receipts, and contact you about your membership, including a reminder email before your plan ends (you can turn these off on your pass). Lifts and friends are optional extras you choose to use; you can delete them with your account. The basis is the
         contract you enter when you join (Sec. 12(b), RA 10173) and our legal duty to keep tax records (Sec. 12(c)). We ask for your consent when you set up your
         pass. We do not sell your data or use it for advertising.
       </p>
 
       <H>Who else handles it</H>
       <p>
-        Only our staff, and these service providers acting on our instructions: Supabase (database and sign-in, servers outside the Philippines), our email
+        Our staff (except your lifts, which they cannot see), friends you accept (only what is described above), and these service providers acting on our instructions: Supabase (database and sign-in, servers outside the Philippines), our email
         provider (account emails), and PayMongo (online payments, once offered). Each is bound to protect your data. Data stored abroad stays under our
         responsibility under the Data Privacy Act. We share data with government agencies only when the law requires it.
       </p>
