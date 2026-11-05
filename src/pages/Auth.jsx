@@ -77,9 +77,26 @@ export function SignIn() {
 export function SignUp() {
   const { session } = useAuth()
   const { busy, error, setError, run } = useForm()
-  const [sentTo, setSentTo] = useState(null)
+  const [sent, setSent] = useState(null) // { email, password } until confirmed
+
+  // The confirmation link often opens in another browser (Gmail's, or another device), which
+  // signs in there, not here. So this tab keeps trying the password the person just chose:
+  // once the email is confirmed it signs in by itself. 15s keeps it under Supabase's sign-in limit.
+  useEffect(() => {
+    if (!sent) return
+    const tryIn = () => document.visibilityState === 'visible' && supabase.auth.signInWithPassword(sent).catch(() => {})
+    const t = setInterval(tryIn, 15000)
+    document.addEventListener('visibilitychange', tryIn)
+    window.addEventListener('focus', tryIn)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', tryIn)
+      window.removeEventListener('focus', tryIn)
+    }
+  }, [sent])
+
   if (session) return <Navigate to="/pass" replace />
-  if (sentTo) return <CheckEmail email={sentTo} what="confirm your email and finish setting up your pass" send={() => confirmAgain(sentTo)} />
+  if (sent) return <CheckEmail email={sent.email} what="confirm your email. Then come back here: this page signs you in by itself" send={() => confirmAgain(sent.email)} />
 
   const submit = run(async (f) => {
     const email = String(f.get('email')).trim()
@@ -94,7 +111,7 @@ export function SignUp() {
       }),
     )
     // Same screen whether or not the email was already registered, so this form can't be used to look up accounts.
-    setSentTo(email)
+    setSent({ email, password })
   })
 
   return (
