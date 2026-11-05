@@ -5,6 +5,7 @@ import '@fontsource/barlow/400.css'
 import '@fontsource/barlow/500.css'
 import '@fontsource/barlow/600.css'
 import '@fontsource/barlow/700.css'
+import './lib/install.js' // catches Chrome's install offer before the pass screen loads
 import App from './App.jsx'
 import './index.css'
 

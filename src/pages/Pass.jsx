@@ -10,6 +10,7 @@ import { CountUp, EASE_OUT, StatusBadge, dayNo, fmtDate, long, manilaToday } fro
 import { AuthShell, CodeField, Field, Notice, Submit, TextLink, Toggle, gymCode } from '../components/form.jsx'
 import { GYM } from '../data/gym.js'
 import { Friends, Lifts } from './Training.jsx'
+import InstallCard from '../components/InstallCard.jsx'
 
 const TABS = [
   { id: 'pass', label: 'Pass', Icon: QrCode },
@@ -99,6 +100,7 @@ function Card({ m }) {
         <motion.div initial={{ opacity: 0, y: 16, filter: 'blur(4px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 0.32, ease: EASE_OUT }}>
           {flash && <div className="mt-4"><Notice tone="ok">{flash}</Notice></div>}
           <h1 className="mt-4 font-display text-4xl font-black uppercase leading-none">Hi, {m.full_name.split(' ')[0]}</h1>
+          <InstallCard />
 
           <section aria-label="Membership pass" className="mt-5 overflow-hidden rounded-2xl bg-paper text-ink shadow-[0_24px_48px_-20px_rgb(0_0_0/0.7)]">
             <div className="flex items-center gap-3 p-4">
