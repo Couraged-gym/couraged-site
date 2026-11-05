@@ -6,10 +6,10 @@ import { passCardBlob, saveImage } from '../lib/passCard.js'
 import { BellRing, CalendarCheck, CreditCard, Download, Dumbbell, Expand, LogOut, QrCode, ReceiptText, RefreshCw, ShieldCheck, Trash2, Users, X } from 'lucide-react'
 import { CONSENT_VERSION, message, supabase } from '../lib/supabase.js'
 import { useAuth } from '../auth.jsx'
-import { CountUp, EASE_OUT, StatusBadge, fmtDate } from '../components/ui.jsx'
+import { CountUp, EASE_OUT, StatusBadge, dayNo, fmtDate, long, manilaToday } from '../components/ui.jsx'
 import { AuthShell, CodeField, Field, Notice, Submit, TextLink, Toggle, gymCode } from '../components/form.jsx'
 import { GYM } from '../data/gym.js'
-import { Friends, Lifts, dayNo, long, manilaToday } from './Training.jsx'
+import { Friends, Lifts } from './Training.jsx'
 
 const TABS = [
   { id: 'pass', label: 'Pass', Icon: QrCode },

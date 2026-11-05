@@ -36,4 +36,8 @@ export function CountUp({ value, format = (v) => Math.round(v), duration = 0.6 }
 }
 
 export const fmtDate = (t, opts = { weekday: 'short', month: 'short', day: 'numeric' }) => new Date(t).toLocaleDateString('en-PH', opts)
-export const fmtTime = (t) => new Date(t).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })
+// Dates come from the database as Manila calendar days ('2026-11-26').
+export const manilaToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date())
+export const dayNo = (iso) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) / 864e5
+export const long = (iso) => fmtDate(`${iso}T00:00:00`, { month: 'short', day: 'numeric', year: 'numeric' })
+export const fmtTime =(t) => new Date(t).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })

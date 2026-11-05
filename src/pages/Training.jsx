@@ -3,13 +3,9 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Check, Copy, Dumbbell, Eye, Flame, Medal, Share2, Trash2, Trophy, UserMinus, UserPlus, X } from 'lucide-react'
 import { message, supabase } from '../lib/supabase.js'
 import { useAuth } from '../auth.jsx'
-import { EASE_OUT, fmtDate } from '../components/ui.jsx'
+import { EASE_OUT, dayNo, long, manilaToday } from '../components/ui.jsx'
 import { CodeField, Field, Notice, Submit, Toggle, gymCode } from '../components/form.jsx'
 
-// Dates come from the database as Manila calendar days ('2026-11-26').
-export const manilaToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date())
-export const dayNo = (iso) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) / 864e5
-export const long = (iso) => fmtDate(`${iso}T00:00:00`, { month: 'short', day: 'numeric', year: 'numeric' })
 const ago = (iso) => {
   const d = dayNo(manilaToday()) - dayNo(iso)
   return d === 0 ? 'Today' : d === 1 ? 'Yesterday' : d < 14 ? `${d} days ago` : long(iso)
