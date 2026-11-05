@@ -1,19 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, useLocation, useNavigate } from 'react-router'
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import { QRCodeCanvas, QRCodeSVG } from 'qrcode.react'
 import { passCardBlob, saveImage } from '../lib/passCard.js'
-import { BellRing, CalendarCheck, CreditCard, Download, Expand, LogOut, ReceiptText, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-react'
+import { BellRing, CalendarCheck, CreditCard, Download, Dumbbell, Expand, LogOut, QrCode, ReceiptText, RefreshCw, ShieldCheck, Trash2, Users, X } from 'lucide-react'
 import { CONSENT_VERSION, message, supabase } from '../lib/supabase.js'
 import { useAuth } from '../auth.jsx'
 import { CountUp, EASE_OUT, StatusBadge, fmtDate } from '../components/ui.jsx'
-import { AuthShell, Field, Notice, Submit, TextLink } from '../components/form.jsx'
+import { AuthShell, CodeField, Field, Notice, Submit, TextLink, Toggle, gymCode } from '../components/form.jsx'
 import { GYM } from '../data/gym.js'
+import { Friends, Lifts, dayNo, long, manilaToday } from './Training.jsx'
 
-// Dates come from the database as Manila calendar days ('2026-11-26').
-const manilaToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date())
-const dayNo = (iso) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) / 864e5
-const long = (iso) => fmtDate(`${iso}T00:00:00`, { month: 'short', day: 'numeric', year: 'numeric' })
+const TABS = [
+  { id: 'pass', label: 'Pass', Icon: QrCode },
+  { id: 'lifts', label: 'Lifts', Icon: Dumbbell },
+  { id: 'friends', label: 'Friends', Icon: Users },
+]
 
 export default function Pass() {
   const { session, member, memberError, refresh } = useAuth()
@@ -46,6 +48,8 @@ function PassSkeleton() {
 function Card({ m }) {
   const { session, signOut, refresh } = useAuth()
   const flash = useLocation().state?.flash
+  const [params, setParams] = useSearchParams()
+  const tab = TABS.some((t) => t.id === params.get('tab')) ? params.get('tab') : 'pass'
   const [big, setBig] = useState(false)
   const [token, setToken] = useState(m.qr_token)
   const [rotating, setRotating] = useState(false)
@@ -75,7 +79,7 @@ function Card({ m }) {
   }
 
   return (
-    <main className="min-h-dvh bg-ink pb-[max(2rem,env(safe-area-inset-bottom))] text-paper">
+    <main className="min-h-dvh bg-ink pb-[calc(6rem+env(safe-area-inset-bottom))] text-paper">
       <div className="mx-auto max-w-md px-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <header className="flex h-12 items-center gap-2">
           <Link to="/" className="flex flex-1 items-center gap-2 rounded-md">
@@ -89,6 +93,9 @@ function Card({ m }) {
           </button>
         </header>
 
+        {tab === 'lifts' && <Lifts />}
+        {tab === 'friends' && <Friends m={m} />}
+        {tab === 'pass' && (
         <motion.div initial={{ opacity: 0, y: 16, filter: 'blur(4px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 0.32, ease: EASE_OUT }}>
           {flash && <div className="mt-4"><Notice tone="ok">{flash}</Notice></div>}
           <h1 className="mt-4 font-display text-4xl font-black uppercase leading-none">Hi, {m.full_name.split(' ')[0]}</h1>
@@ -185,7 +192,16 @@ function Card({ m }) {
           </dl>
           <p className="mt-3 px-1 text-xs text-ash">To change your name or mobile number, ask the front desk.</p>
 
-          <Reminders on={m.reminders} />
+          <div className="mt-4">
+            <Toggle
+              Icon={BellRing}
+              label="Renewal reminders"
+              on={m.reminders !== false}
+              save={async (on) => !(await supabase.rpc('member_set_reminders', { p_on: on })).error}
+            >
+              An email 3 days before your plan ends, and one the day after.
+            </Toggle>
+          </div>
 
           <button
             type="button"
@@ -201,7 +217,27 @@ function Card({ m }) {
 
           <DeleteAccount email={session.user.email} />
         </motion.div>
+        )}
       </div>
+
+      <nav aria-label="Member sections" className="fixed inset-x-0 bottom-0 z-40 border-t border-paper/8 bg-ink/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md">
+        <ul className="mx-auto flex max-w-md">
+          {TABS.map(({ id, label, Icon }) => (
+            <li key={id} className="flex-1">
+              <button
+                type="button"
+                aria-current={tab === id ? 'page' : undefined}
+                onClick={() => (setParams(id === 'pass' ? {} : { tab: id }), window.scrollTo(0, 0))}
+                className={`press relative flex h-16 w-full flex-col items-center justify-center gap-1 text-xs font-semibold uppercase tracking-[0.08em] ${tab === id ? 'text-gold' : 'text-ash'}`}
+              >
+                {tab === id && <motion.span layoutId="tab-pill" className="absolute top-0 h-0.5 w-10 rounded-full bg-gold" transition={{ duration: 0.25, ease: EASE_OUT }} />}
+                <Icon className="size-5" aria-hidden="true" />
+                {label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
       <AnimatePresence>
         {big && (
@@ -349,42 +385,6 @@ function Onboard() {
   )
 }
 
-// What a member types after the fixed CRDFH: "26-0012", "260012" or the whole code all work.
-const gymCode = (typed) => {
-  const t = String(typed ?? '').toUpperCase().replace(/\s/g, '').replace(/^CRDFH-?/, '')
-  const m = t.match(/^(\d{2})-?(\d+)$/)
-  return m ? `CRDFH${m[1]}-${m[2]}` : `CRDFH${t}`
-}
-
-function CodeField() {
-  return (
-    <div>
-      <label htmlFor="gym-code" className="block text-sm font-semibold">
-        Gym code
-      </label>
-      <div className="mt-1.5 flex h-12 overflow-hidden rounded-lg bg-ink-2 ring-1 ring-paper/12 transition-shadow duration-150 focus-within:ring-2 focus-within:ring-gold">
-        <span className="tabular grid place-items-center bg-paper/6 px-3.5 font-semibold text-ash" aria-hidden="true">
-          CRDFH
-        </span>
-        <input
-          id="gym-code"
-          name="code"
-          required
-          inputMode="numeric"
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="26-0012"
-          aria-describedby="gym-code-hint"
-          className="tabular min-w-0 flex-1 bg-transparent px-3 text-base text-paper placeholder:text-ash/60 focus:outline-none"
-        />
-      </div>
-      <p id="gym-code-hint" className="mt-1.5 text-xs text-ash">
-        On your gym card or receipt, e.g. CRDFH26-0012. Just type the numbers.
-      </p>
-    </div>
-  )
-}
-
 // Check-ins logged by the front desk scanner (POS patch 019).
 function Visits() {
   const [visits, setVisits] = useState(null)
@@ -509,39 +509,6 @@ function Payments() {
         ))}
       </ol>
     </section>
-  )
-}
-
-function Reminders({ on: initial }) {
-  const [on, setOn] = useState(initial !== false)
-  const [busy, setBusy] = useState(false)
-  const toggle = async () => {
-    const next = !on
-    setOn(next) // optimistic; put back if it fails
-    setBusy(true)
-    const { error } = await supabase.rpc('member_set_reminders', { p_on: next })
-    setBusy(false)
-    if (error) setOn(!next)
-  }
-  return (
-    <div className="mt-4 flex items-center gap-4 rounded-2xl bg-ink-2 p-5 ring-1 ring-paper/5">
-      <BellRing className="size-5 shrink-0 text-gold" aria-hidden="true" />
-      <div className="min-w-0 flex-1">
-        <p id="rem-label" className="font-semibold">Renewal reminders</p>
-        <p className="text-sm text-ash">An email 3 days before your plan ends, and one the day after.</p>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        aria-labelledby="rem-label"
-        disabled={busy}
-        onClick={toggle}
-        className={`relative h-8 w-14 shrink-0 rounded-full transition-colors duration-200 ${on ? 'bg-gold' : 'bg-paper/15'}`}
-      >
-        <span className={`absolute top-1 left-1 size-6 rounded-full bg-paper shadow transition-transform duration-200 ease-[var(--ease-out)] ${on ? 'translate-x-6' : ''}`} />
-      </button>
-    </div>
   )
 }
 

@@ -107,6 +107,79 @@ export function Notice({ tone = 'error', children }) {
   )
 }
 
+// What a member types after the fixed CRDFH: "26-0012", "260012" or the whole code all work.
+export const gymCode = (typed) => {
+  const t = String(typed ?? '').toUpperCase().replace(/\s/g, '').replace(/^CRDFH-?/, '')
+  const m = t.match(/^(\d{2})-?(\d+)$/)
+  return m ? `CRDFH${m[1]}-${m[2]}` : `CRDFH${t}`
+}
+
+export function CodeField({ label = 'Gym code', hint = 'On your gym card or receipt, e.g. CRDFH26-0012. Just type the numbers.', ...props }) {
+  const id = useId()
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm font-semibold">
+        {label}
+      </label>
+      <div className="mt-1.5 flex h-12 overflow-hidden rounded-lg bg-ink-2 ring-1 ring-paper/12 transition-shadow duration-150 focus-within:ring-2 focus-within:ring-gold">
+        <span className="tabular grid place-items-center bg-paper/6 px-3.5 font-semibold text-ash" aria-hidden="true">
+          CRDFH
+        </span>
+        <input
+          id={id}
+          name="code"
+          required
+          inputMode="numeric"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="26-0012"
+          aria-describedby={`${id}-hint`}
+          className="tabular min-w-0 flex-1 bg-transparent px-3 text-base text-paper placeholder:text-ash/60 focus:outline-none"
+          {...props}
+        />
+      </div>
+      <p id={`${id}-hint`} className="mt-1.5 text-xs text-ash">
+        {hint}
+      </p>
+    </div>
+  )
+}
+
+// On/off switch row. Optimistic: flips at once, flips back if saving fails.
+export function Toggle({ Icon, label, children, on: initial, save }) {
+  const id = useId()
+  const [on, setOn] = useState(Boolean(initial))
+  const [busy, setBusy] = useState(false)
+  const flip = async () => {
+    const next = !on
+    setOn(next)
+    setBusy(true)
+    const ok = await save(next)
+    setBusy(false)
+    if (!ok) setOn(!next)
+  }
+  return (
+    <div className="flex items-center gap-4 rounded-2xl bg-ink-2 p-5 ring-1 ring-paper/5">
+      {Icon && <Icon className="size-5 shrink-0 text-gold" aria-hidden="true" />}
+      <div className="min-w-0 flex-1">
+        <p id={id} className="font-semibold">{label}</p>
+        <p className="text-sm text-ash">{children}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-labelledby={id}
+        disabled={busy}
+        onClick={flip}
+        className={`relative h-8 w-14 shrink-0 rounded-full transition-colors duration-200 ${on ? 'bg-gold' : 'bg-paper/15'}`}
+      >
+        <span className={`absolute top-1 left-1 size-6 rounded-full bg-paper shadow transition-transform duration-200 ease-[var(--ease-out)] ${on ? 'translate-x-6' : ''}`} />
+      </button>
+    </div>
+  )
+}
+
 export const TextLink = ({ to, children }) => (
   <Link to={to} className="font-semibold text-paper underline decoration-gold decoration-2 underline-offset-4 hover:text-gold">
     {children}
