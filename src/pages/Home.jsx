@@ -14,17 +14,11 @@ import {
 import { animate, createScope, stagger } from 'animejs'
 import { AirVent, ArrowLeft, ArrowRight, ArrowUpRight, Car, Clock, Droplets, MapPin, Mail, MessageCircle, Phone, ShowerHead, UserRound, Wifi } from 'lucide-react'
 import { Link } from 'react-router'
-import { AMENITIES, COACHES, GYM, openStatus, peso } from '../data/gym.js'
+import { AMENITIES, COACHES, FAQ, GYM, openStatus, peso } from '../data/gym.js'
 import { supabase } from '../lib/supabase.js'
 import SlideTextButton from '../components/kokonutui/slide-text-button.jsx'
 import { CountUp, EASE_IN_OUT, EASE_OUT } from '../components/ui.jsx'
 
-
-const Sample = ({ children = 'Sample', dark }) => (
-  <span className={`inline-block rounded-sm px-1.5 py-0.5 align-middle text-[0.65rem] font-bold uppercase tracking-[0.14em] ${dark ? 'bg-paper/10 text-ash' : 'bg-ink/8 text-smoke'}`}>
-    {children}
-  </span>
-)
 
 // Section heading whose lines rise out of a mask when scrolled into view.
 function Heading({ lines, className = '' }) {
@@ -71,6 +65,7 @@ export default function Home() {
       <Coaches />
       <Membership />
       <Amenities />
+      <Faq />
       <Visit />
       <Footer />
     </div>
@@ -178,12 +173,13 @@ function Hero() {
           {status.label}
         </p>
         <h1 className="font-display text-[clamp(3.6rem,10vw,6rem)] font-black uppercase leading-[0.86] tracking-[-0.01em] text-balance">
+          <span className="rise mb-4 block font-sans text-sm font-bold leading-normal tracking-[0.14em] text-gold">Gym &amp; fitness coaching · Talamban, Cebu City</span>
           <span className="line block overflow-hidden pb-1"><span className="block">Courage,</span></span>
           <span className="line block overflow-hidden pb-1"><span className="block text-gold">one rep</span></span>
           <span className="line block overflow-hidden pb-1"><span className="block">at a time.</span></span>
         </h1>
         <p className="rise mt-6 max-w-md text-lg text-paper/80">
-          Air-conditioned strength and cardio gym on Miñoza St., Talamban. Free weights, machines, coaches, and a locker and shower waiting after.
+          CourageD Fitness Hub is an air-conditioned gym on Miñoza St., Talamban, Cebu City. Free weights, machines, cardio and fitness coaching, with a locker and shower waiting after.
         </p>
         <div className="rise mt-8 flex flex-wrap gap-3">
           <SlideTextButton href="#membership" text="See membership" hoverText="Pick your plate" />
@@ -210,7 +206,7 @@ function Hero() {
 }
 
 const wrap = (min, max, v) => ((((v - min) % (max - min)) + (max - min)) % (max - min)) + min
-const MARQUEE = ['Strength', 'Cardio', 'Coaching', 'Air-conditioned', 'Talamban, Cebu', 'Open 6:30 AM']
+const MARQUEE = ['Strength', 'Cardio', 'Coaching', 'Air-conditioned', 'Talamban, Cebu', 'Open 7 days']
 
 // Drifts on its own; scrolling speeds it up and flips its direction.
 function Marquee() {
@@ -260,7 +256,7 @@ function Floor() {
         <div className="md:pt-6">
           <Heading lines={['Built for', 'the work.']} />
           <p className="mt-5 max-w-prose text-lg text-smoke">
-            {GYM.about.text} <Sample>Sample copy</Sample>
+            {GYM.about.text}
           </p>
           <dl className="mt-8 flex gap-10">
             <div>
@@ -270,9 +266,6 @@ function Floor() {
             <div>
               <dt className="text-sm font-semibold uppercase tracking-[0.12em] text-smoke">Members</dt>
               <dd className="tabular font-display text-4xl font-extrabold">{GYM.about.members}</dd>
-            </div>
-            <div className="self-end pb-2">
-              <Sample />
             </div>
           </dl>
         </div>
@@ -336,7 +329,7 @@ function Coaches() {
       <div className="mx-auto max-w-7xl px-4 sm:px-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <Heading lines={['Your corner,', <span className="text-gold">three coaches deep.</span>]} />
-          <p className="max-w-sm text-ash">Swipe or use the arrows. Photos and specialties are placeholders until the team sends theirs.</p>
+          <p className="max-w-sm text-ash">Personal fitness coaching for every level, from your first session to your heaviest lift. Swipe or use the arrows.</p>
         </div>
 
         <div
@@ -446,11 +439,6 @@ function CoachSlide({ coach, backdrop, active }) {
               {f}
             </li>
           ))}
-          {coach.placeholder && (
-            <li className="self-center">
-              <Sample dark />
-            </li>
-          )}
         </motion.ul>
         <motion.div variants={reveal} className="mt-7">
           <SlideTextButton href={GYM.facebook} target="_blank" rel="noreferrer" variant="gold" text={`Train with ${first}`} hoverText="Message us on Facebook" />
@@ -680,6 +668,29 @@ function Amenities() {
             )
           })}
         </motion.ul>
+      </div>
+    </section>
+  )
+}
+
+function Faq() {
+  return (
+    <section id="faq" className="bg-paper py-20 md:py-28">
+      <div className="mx-auto max-w-3xl px-4 sm:px-8">
+        <Heading lines={['Questions,', <span className="text-crimson">answered.</span>]} />
+        <div className="mt-10 space-y-3">
+          {FAQ.map(([q, a]) => (
+            <details key={q} className="group rounded-xl bg-mist">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 font-semibold">
+                <h3 className="text-lg">{q}</h3>
+                <span aria-hidden="true" className="text-2xl leading-none transition-transform duration-200 group-open:rotate-45">
+                  +
+                </span>
+              </summary>
+              <p className="px-5 pb-5 text-smoke">{a}</p>
+            </details>
+          ))}
+        </div>
       </div>
     </section>
   )

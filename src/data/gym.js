@@ -1,9 +1,13 @@
-// Everything the client may want to edit lives here.
-// Entries marked `placeholder: true` are sample content and render with a "Sample" tag.
+// Everything the client may want to edit lives here. The build also turns it into the
+// search data in index.html (JSON-LD, crawlable text) and /llms.txt, see vite.config.js.
 
 export const GYM = {
   name: 'CourageD Fitness Hub',
   address: '3rd Floor CRD Bldg., Miñoza St., Talamban, Cebu City 6000',
+  street: '3rd Floor CRD Bldg., Miñoza St., Talamban',
+  city: 'Cebu City',
+  postalCode: '6000',
+  url: 'https://couragedph.com',
   mapsQuery: 'CRD Bldg Miñoza St Talamban Cebu City',
   phone: '0933 816 9412',
   phoneHref: 'tel:+639338169412',
@@ -11,19 +15,18 @@ export const GYM = {
   facebook: 'https://www.facebook.com/couragedfitnesshub',
   // Day 0 = Sunday. Times in 24h "HH:MM".
   hours: [
-    { day: 'Sunday', open: '06:30', close: '12:00' },
-    { day: 'Monday', open: '06:30', close: '21:00' },
-    { day: 'Tuesday', open: '06:30', close: '21:00' },
-    { day: 'Wednesday', open: '06:30', close: '21:00' },
-    { day: 'Thursday', open: '06:30', close: '21:00' },
-    { day: 'Friday', open: '06:30', close: '21:00' },
-    { day: 'Saturday', open: '06:30', close: '21:00' },
+    { day: 'Sunday', open: '06:00', close: '12:00' },
+    { day: 'Monday', open: '06:30', close: '21:30' },
+    { day: 'Tuesday', open: '06:30', close: '21:30' },
+    { day: 'Wednesday', open: '06:30', close: '21:30' },
+    { day: 'Thursday', open: '06:30', close: '21:30' },
+    { day: 'Friday', open: '06:30', close: '21:30' },
+    { day: 'Saturday', open: '06:30', close: '21:30' },
   ],
   about: {
-    placeholder: true,
-    text: 'A neighbourhood strength and conditioning gym on Miñoza St. Free weights, machines and cardio under one air-conditioned roof, with coaches who know your name.',
-    founded: '2019',
-    members: '300+',
+    text: 'A neighbourhood gym in Talamban, Cebu City for strength, fitness and coaching. Free weights, machines and cardio under one air-conditioned roof, with coaches who know your name.',
+    founded: '2024',
+    members: '600+',
   },
 }
 
@@ -43,23 +46,31 @@ export const COACHES = [
     name: 'Coach Art',
     role: 'Head Coach',
     photo: null, // drop a file in public/assets/ and set e.g. '/assets/coach-art.jpg'
-    placeholder: true,
     focus: ['Strength & powerlifting', 'Program design', 'Form clinics'],
   },
   {
     name: 'Coach Karl',
     role: 'Coach',
     photo: null,
-    placeholder: true,
     focus: ['Fat loss & conditioning', 'Circuit training', 'Beginner onboarding'],
   },
   {
     name: 'Coach Wilmer',
     role: 'Coach',
     photo: null,
-    placeholder: true,
     focus: ['Hypertrophy', 'Mobility', 'Personal training'],
   },
+]
+
+// Shown on the home page and published as FAQ data for search and AI answers. Keep answers factual.
+export const FAQ = [
+  ['Where is CourageD Fitness Hub?', `On the 3rd floor of the CRD Building, Miñoza St., Talamban, Cebu City. There is parking on site.`],
+  ['What are the gym hours?', 'Monday to Saturday 6:30 AM to 9:30 PM, and Sunday 6:00 AM to 12:00 noon.'],
+  ['Do you offer fitness coaching?', 'Yes. Head Coach Art and Coaches Karl and Wilmer coach on the gym floor. Message us on Facebook or call 0933 816 9412 to train with a coach.'],
+  ['Can I walk in without a membership?', 'Yes. Buy a day pass at the front desk. Members pay a lower day-pass rate, and monthly plans are listed under Membership.'],
+  ['Is there a student discount?', 'Yes. Students, seniors and PWD get a discounted price with a valid ID at the front desk.'],
+  ["What's included with a visit?", 'Air-conditioning, free Wi-Fi, free drinking water, a free locker and shower, and parking.'],
+  ['How long has CourageD been open?', 'Since 2024, and over 600 members have trained with us.'],
 ]
 
 export const AMENITIES = ['Parking', 'Free Wi-Fi', 'Air-conditioned', 'Free water', 'Free locker & shower']
