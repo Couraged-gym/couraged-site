@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes, useLocation } from 'react-router'
 import { AnimatePresence, MotionConfig } from 'motion/react'
 import { AuthProvider } from './auth.jsx'
 import Splash from './components/Splash.jsx'
+import { OverlayHost } from './components/overlay.jsx'
 import Home from './pages/Home.jsx'
 
 // Member screens load on demand, so the home page stays light for visitors.
@@ -23,6 +24,7 @@ export default function App() {
         <BrowserRouter>
           <Screens />
         </BrowserRouter>
+        <OverlayHost />
       </AuthProvider>
     </MotionConfig>
   )

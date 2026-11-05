@@ -11,6 +11,7 @@ import { AuthShell, CodeField, Field, Notice, Submit, TextLink, Toggle, gymCode 
 import { GYM } from '../data/gym.js'
 import { Friends, Lifts } from './Training.jsx'
 import InstallCard from '../components/InstallCard.jsx'
+import { ask, toast } from '../components/overlay.jsx'
 
 const TABS = [
   { id: 'pass', label: 'Pass', Icon: QrCode },
@@ -70,12 +71,18 @@ function Card({ m }) {
   const memberLeft = m.member_until ? dayNo(m.member_until) - dayNo(manilaToday()) : null
 
   const newQr = async () => {
-    if (!confirm('Make a new QR code? The old one (and any screenshot of it) stops working at the door.')) return
+    const ok = await ask({
+      title: 'Make a new QR code?',
+      body: 'Your old code, and any screenshot of it, stops working at the door straight away.',
+      confirm: 'Make new code',
+    })
+    if (!ok) return
     setRotating(true)
     const { data, error } = await supabase.rpc('member_new_qr')
     setRotating(false)
-    if (error) return alert(message(error))
+    if (error) return toast(message(error), { tone: 'error' })
     setToken(data)
+    toast('New QR code ready. Save it to photos again if you use a screenshot.')
     refresh()
   }
 
