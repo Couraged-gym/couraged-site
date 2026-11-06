@@ -106,7 +106,7 @@ function Card({ m }) {
         {tab === 'pass' && (
         <motion.div initial={{ opacity: 0, y: 16, filter: 'blur(4px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 0.32, ease: EASE_OUT }}>
           {flash && <div className="mt-4"><Notice tone="ok">{flash}</Notice></div>}
-          <h1 className="mt-4 font-display text-4xl font-black uppercase leading-none">Hi, {m.full_name.split(' ')[0]}</h1>
+          <h1 className="mt-4 font-display text-4xl font-black uppercase leading-none">Hi, {firstName(m.full_name)}</h1>
           <InstallCard />
 
           <section aria-label="Membership pass" className="mt-5 overflow-hidden rounded-2xl bg-paper text-ink shadow-[0_24px_48px_-20px_rgb(0_0_0/0.7)]">
@@ -312,13 +312,14 @@ function Onboard() {
     const f = new FormData(e.currentTarget)
     if (!f.get('adult')) return setError('Members under 18 need a parent or guardian to agree. Tick the age box once they do.')
     if (!f.get('consent')) return setError('Tick the box to agree to the privacy notice.')
-    const name = String(f.get('name')), phone = String(f.get('phone'))
+    // Saved the way the front desk writes it: "LAST, FIRST MIDDLE".
+    const name = `${String(f.get('last')).trim()}, ${String(f.get('first')).trim()}`.toUpperCase(), phone = String(f.get('phone'))
     setBusy('start')
     setError(null)
     const { data, error } = await supabase.rpc('member_start', { p_full_name: name, p_phone: phone, p_consent: CONSENT_VERSION })
     setBusy(null)
     if (error) return setError(message(error))
-    if (data?.result === 'need_code') return setWho({ name, phone })
+    if (data?.result === 'need_code') return setWho({ name, phone, reason: data.reason })
     refresh()
   }
 
@@ -350,7 +351,7 @@ function Onboard() {
 
   if (who)
     return (
-      <AuthShell title="One more check" lead={`We have ${who.phone} on file, but under a different name. To link the right membership, enter your gym code.`} footer={footer}>
+      <AuthShell title="One more check" lead={who.reason === 'name' ? `We found a membership under your name, but with a different mobile number. Enter your gym code to link it, or ask the front desk (${GYM.phone}) to update your number.` : `We have ${who.phone} on file, but under a different name. To link the right membership, enter your gym code.`} footer={footer}>
         <form onSubmit={link} className="space-y-4">
           <CodeField />
           <Notice>{error}</Notice>
@@ -372,7 +373,10 @@ function Onboard() {
   return (
     <AuthShell title="Set up your pass" lead="Your email is confirmed. Already a member at the front desk? Use the mobile number they have for you, and we'll find your membership." footer={footer}>
       <form onSubmit={start} className="space-y-4">
-        <Field label="Full name" name="name" autoComplete="name" maxLength={80} required />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Last name" name="last" autoComplete="family-name" maxLength={40} required />
+          <Field label="First name" name="first" autoComplete="given-name" maxLength={40} required />
+        </div>
         <Field label="Mobile number" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="0917 123 4567" required />
         <label className="flex gap-3 text-sm text-ash">
           <input type="checkbox" name="adult" className="mt-0.5 size-5 shrink-0 accent-gold" />
@@ -577,3 +581,6 @@ function DeleteAccount({ email }) {
     </section>
   )
 }
+
+// 'LONTOK, AUGOSTO ANTONIO' -> 'AUGOSTO'; names without a comma use the first word.
+const firstName = (n) => (n.includes(',') ? n.split(',')[1] : n).trim().split(' ')[0]
