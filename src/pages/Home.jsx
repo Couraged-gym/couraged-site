@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   AnimatePresence,
+  animate as tween,
   motion,
   useAnimationFrame,
   useInView,
   useMotionValue,
+  useMotionValueEvent,
   useReducedMotion,
   useScroll,
   useSpring,
@@ -12,7 +14,7 @@ import {
   useVelocity,
 } from 'motion/react'
 import { animate, createScope, stagger } from 'animejs'
-import { AirVent, ArrowLeft, ArrowRight, ArrowUpRight, Car, Clock, Droplets, MapPin, Mail, MessageCircle, Phone, ShowerHead, UserRound, Wifi } from 'lucide-react'
+import { AirVent, ArrowLeft, ArrowRight, ArrowUpRight, Car, Clock, Droplets, MapPin, Mail, MessageCircle, Pause, Phone, Play, ShowerHead, Wifi } from 'lucide-react'
 import { Link } from 'react-router'
 import { AMENITIES, COACHES, FAQ, GYM, openStatus, peso } from '../data/gym.js'
 import { supabase } from '../lib/supabase.js'
@@ -301,28 +303,67 @@ function Floor() {
   )
 }
 
-// Until real coach photos arrive, each slide pans across a gym photo behind a placeholder.
-const COACH_STAGES = ['/assets/gym-smith.jpg', '/assets/gym-cardio.jpg', '/assets/gym-dumbbells.jpg']
-const COACH_DWELL = 6.5
+// Coach carousel: the centred coach drifts slowly left; once it has drifted DRIFT of a slot
+// it whips to the next coach on a spring. One motion value `pos` (in slots) drives everything.
+const DRIFT = 0.16 // how far the centred coach drifts before the whip, in slot widths
+const DWELL = 5.5 // seconds to drift that far
+const WHIP = { type: 'spring', stiffness: 380, damping: 30, mass: 0.9 }
+const LOOP = [...COACHES, ...COACHES] // doubled so the wrap jump always happens off-screen
+const wrapSlot = (v) => {
+  const L = LOOP.length
+  return ((((v + L / 2) % L) + L) % L) - L / 2
+}
+const mod = (n) => ((n % COACHES.length) + COACHES.length) % COACHES.length
 const reveal = {
   out: { opacity: 0, y: 28, filter: 'blur(6px)' },
   in: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.6, ease: EASE_OUT } },
+  gone: { opacity: 0, y: -12, filter: 'blur(4px)', transition: { duration: 0.15, ease: 'easeIn' } },
 }
 
 function Coaches() {
   const stage = useRef(null)
+  const slot = useRef(null)
   const inView = useInView(stage, { amount: 0.4 })
-  const [seen, setSeen] = useState(false)
+  const reduce = useReducedMotion()
   const [i, setI] = useState(0)
-  const [run, setRun] = useState(0)
   const [hover, setHover] = useState(false)
-  useEffect(() => void (inView && setSeen(true)), [inView])
+  const [stopped, setStopped] = useState(false)
 
-  const go = (k) => {
-    setI((k + COACHES.length) % COACHES.length)
-    setRun((r) => r + 1)
+  const pos = useMotionValue(0)
+  const base = useRef(0) // slot the current drift started from
+  const whip = useRef(null)
+  const drag = useRef(null)
+  const paused = stopped || hover || !inView || reduce
+  const pausedRef = useRef(paused)
+  pausedRef.current = paused
+
+  // Whip blur and lean come from how fast `pos` is moving, so they appear only mid-whip.
+  const vel = useVelocity(pos)
+  const skew = useTransform(vel, (v) => Math.max(-7, Math.min(7, v * 1.4)))
+  const blur = useTransform(vel, (v) => `blur(${Math.min(6, Math.abs(v) * 0.9)}px)`)
+  const fillBar = useTransform(pos, (v) => Math.max(0, Math.min(1, (v - Math.round(v)) / DRIFT)))
+
+  useMotionValueEvent(pos, 'change', (v) => setI(mod(Math.round(v))))
+
+  const go = (n) => {
+    whip.current?.stop()
+    base.current = n
+    const c = tween(pos, n, reduce ? { duration: 0 } : WHIP)
+    whip.current = c
+    c.then(() => whip.current === c && (whip.current = null))
   }
-  const next = COACHES[(i + 1) % COACHES.length]
+
+  useAnimationFrame((_, dt) => {
+    if (pausedRef.current || whip.current || drag.current) return
+    const v = pos.get() + ((dt / 1000) * DRIFT) / DWELL
+    if (v - base.current >= DRIFT) go(base.current + 1)
+    else pos.set(v)
+  })
+
+  const step = (d) => go(Math.round(pos.get()) + d)
+  const next = COACHES[mod(i + 1)]
+  const coach = COACHES[i]
+  const first = coach.name.split(' ')[1]
 
   return (
     <section id="coaches" className="overflow-hidden bg-ink py-20 text-paper md:py-28">
@@ -332,59 +373,103 @@ function Coaches() {
           <p className="max-w-sm text-ash">Personal fitness coaching for every level, from your first session to your heaviest lift. Swipe or use the arrows.</p>
         </div>
 
-        <div
+        <motion.div
           ref={stage}
           role="region"
           aria-roledescription="carousel"
           aria-label="Coaches"
-          className="relative mt-12 overflow-hidden rounded-xl"
+          className="relative mt-12 h-[41rem] touch-pan-y overflow-hidden rounded-xl bg-ink-2 select-none md:h-[min(80vh,46rem)]"
           onPointerEnter={(e) => e.pointerType === 'mouse' && setHover(true)}
           onPointerLeave={(e) => e.pointerType === 'mouse' && setHover(false)}
+          onPanStart={() => {
+            whip.current?.stop()
+            whip.current = null
+            drag.current = pos.get()
+          }}
+          onPan={(_, { offset }) => pos.set(drag.current - offset.x / slot.current.offsetWidth)}
+          onPanEnd={(_, { velocity }) => {
+            drag.current = null
+            go(Math.round(pos.get() - (velocity.x / slot.current.offsetWidth) * 0.25))
+          }}
         >
-          <motion.div
-            className="flex touch-pan-y"
-            animate={{ x: `${-i * 100}%` }}
-            transition={{ duration: 0.65, ease: EASE_IN_OUT }}
-            onPanEnd={(_, { offset, velocity }) => {
-              if (offset.x < -60 || velocity.x < -400) go(i + 1)
-              else if (offset.x > 60 || velocity.x > 400) go(i - 1)
-            }}
-          >
-            {COACHES.map((c, k) => (
-              <CoachSlide key={c.name} coach={c} backdrop={COACH_STAGES[k]} active={k === i && seen} />
-            ))}
-          </motion.div>
+          <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(ellipse_55%_60%_at_50%_85%,rgb(254_190_16/0.22),transparent_70%)]" />
+          {LOOP.map((c, k) => (
+            <CoachSlot key={k} k={k} coach={c} pos={pos} skew={skew} blur={blur} ref={k === 0 ? slot : undefined} />
+          ))}
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-linear-to-t from-ink via-ink/20 to-transparent md:bg-linear-to-r md:from-ink/95 md:via-ink/10" />
+
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 max-w-xl p-6 md:p-12" aria-live={paused ? 'polite' : 'off'}>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div key={i} initial="out" animate="in" exit="gone" variants={{ in: { transition: { staggerChildren: 0.06, delayChildren: 0.05 } } }}>
+                <motion.p variants={reveal} className="text-sm font-bold uppercase tracking-[0.16em] text-gold">
+                  {coach.role}
+                </motion.p>
+                <motion.h3 variants={reveal} className="font-display text-5xl font-black uppercase leading-[0.85] sm:text-6xl md:text-8xl">
+                  {coach.name}
+                </motion.h3>
+                <motion.ul variants={reveal} className="mt-5 flex flex-wrap gap-2">
+                  {coach.focus.map((f) => (
+                    <li key={f} className="rounded-full bg-ink/60 px-3 py-1 text-sm font-semibold ring-1 ring-paper/15 backdrop-blur-sm">
+                      {f}
+                    </li>
+                  ))}
+                </motion.ul>
+                <motion.div variants={reveal} className="pointer-events-auto mt-7">
+                  <SlideTextButton href={GYM.facebook} target="_blank" rel="noreferrer" variant="gold" text={`Train with ${first}`} hoverText="Message us on Facebook" />
+                </motion.div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
 
           <button
             type="button"
-            onClick={() => go(i + 1)}
-            className="press absolute top-5 right-5 hidden items-center gap-3 rounded-lg bg-ink/70 p-2 pr-4 text-left ring-1 ring-paper/10 md:flex"
+            onClick={() => step(1)}
+            className="press absolute top-5 right-5 hidden items-center gap-3 rounded-lg bg-ink/70 p-2 pr-4 text-left ring-1 ring-paper/10 backdrop-blur-sm md:flex"
           >
-            <img src={next.photo || COACH_STAGES[(i + 1) % COACHES.length]} alt="" className="size-12 rounded-md object-cover" />
+            <img src={next.photo} alt="" width="48" height="48" className="size-12 rounded-md bg-ink-2 object-cover object-top" />
             <span>
               <span className="block text-xs font-bold uppercase tracking-[0.12em] text-ash">Up next</span>
               <span className="font-display text-xl font-extrabold uppercase leading-none">{next.name}</span>
             </span>
           </button>
-        </div>
+        </motion.div>
 
         <div className="mt-5 flex items-center gap-6">
           <div className="flex flex-1 gap-3">
             {COACHES.map((c, k) => (
-              <button key={c.name} type="button" onClick={() => go(k)} aria-label={`Show ${c.name}`} aria-current={k === i} className="group flex-1 py-1 text-left">
+              <button
+                key={c.name}
+                type="button"
+                onClick={() => go(Math.round(pos.get()) + ((k - i + COACHES.length) % COACHES.length))}
+                aria-label={`Show ${c.name}`}
+                aria-current={k === i}
+                className="group flex-1 py-1 text-left"
+              >
                 <span className={`text-xs font-bold uppercase tracking-[0.12em] transition-colors duration-200 ${k === i ? 'text-paper' : 'text-ash group-hover:text-paper'}`}>
                   <span className="hidden sm:inline">Coach </span>
                   {c.name.split(' ')[1]}
                 </span>
-                <Progress state={k === i ? 'active' : k < i ? 'done' : 'todo'} run={run} dur={COACH_DWELL} paused={hover || !inView} onDone={() => go(i + 1)} />
+                <span className="mt-2 block h-0.5 overflow-hidden rounded-full bg-paper/20">
+                  <motion.span className="block h-full origin-left bg-gold" style={{ scaleX: k === i ? fillBar : k < i ? 1 : 0 }} />
+                </span>
               </button>
             ))}
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={() => go(i - 1)} aria-label="Previous coach" className="press grid size-11 place-items-center rounded-full ring-1 ring-paper/20 transition-colors hover:bg-paper/10">
+            {!reduce && (
+              <button
+                type="button"
+                onClick={() => setStopped((s) => !s)}
+                aria-label={stopped ? 'Play coach carousel' : 'Pause coach carousel'}
+                className="press grid size-11 place-items-center rounded-full ring-1 ring-paper/20 transition-colors hover:bg-paper/10"
+              >
+                {stopped ? <Play className="size-4" aria-hidden="true" /> : <Pause className="size-4" aria-hidden="true" />}
+              </button>
+            )}
+            <button type="button" onClick={() => step(-1)} aria-label="Previous coach" className="press grid size-11 place-items-center rounded-full ring-1 ring-paper/20 transition-colors hover:bg-paper/10">
               <ArrowLeft className="size-5" aria-hidden="true" />
             </button>
-            <button type="button" onClick={() => go(i + 1)} aria-label="Next coach" className="press grid size-11 place-items-center rounded-full bg-gold text-ink">
+            <button type="button" onClick={() => step(1)} aria-label="Next coach" className="press grid size-11 place-items-center rounded-full bg-gold text-ink">
               <ArrowRight className="size-5" aria-hidden="true" />
             </button>
           </div>
@@ -394,57 +479,30 @@ function Coaches() {
   )
 }
 
-function CoachSlide({ coach, backdrop, active }) {
-  const first = coach.name.split(' ')[1]
+// One coach cut-out. Its place, size and fade all follow `pos`; the centred one is 1, neighbours shrink and dim.
+function CoachSlot({ k, coach, pos, skew, blur, ref }) {
+  const off = useTransform(pos, (v) => wrapSlot(k - v))
+  const x = useTransform(off, (o) => `${o * 100 - 50}%`)
+  const near = useTransform(off, (o) => Math.min(1, Math.abs(o)))
+  const scale = useTransform(near, [0, 1], [1, 0.74])
+  const opacity = useTransform(near, [0, 1], [1, 0.35])
   return (
-    <div className="relative h-[36rem] w-full shrink-0 overflow-hidden md:h-[min(78vh,44rem)]" inert={!active}>
+    <motion.div ref={ref} aria-hidden="true" className="absolute top-4 left-1/2 h-[52%] w-[80%] origin-bottom [mask-image:linear-gradient(black_80%,transparent)] md:top-auto md:bottom-0 md:h-[88%] md:w-[38%] md:[mask-image:none]" style={{ x, scale, opacity }}>
+      <span className="absolute -top-6 left-1/2 -translate-x-1/2 font-display text-[14rem] font-black leading-none text-transparent [-webkit-text-stroke:2px_rgb(254_190_16/0.28)] md:text-[26rem]">
+        {coach.name.split(' ')[1][0]}
+      </span>
       <motion.img
-        src={coach.photo || backdrop}
-        alt={coach.photo ? coach.name : ''}
-        className="absolute inset-0 h-full w-full object-cover"
-        initial={false}
-        animate={active ? { scale: 1.06, x: '-2%' } : { scale: 1.2, x: '2%' }}
-        // Slow pan while showing; reset only after the slide has left the frame.
-        transition={active ? { duration: COACH_DWELL + 0.8, ease: 'linear' } : { duration: 0, delay: 0.7 }}
+        src={coach.photo}
+        alt=""
+        width="880"
+        height="1100"
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+        className="relative h-full w-full object-contain object-bottom"
+        style={{ skewX: skew, filter: blur }}
       />
-      {!coach.photo && (
-        <>
-          <div className="absolute inset-0 bg-ink/70" />
-          <span aria-hidden="true" className="absolute -top-10 right-4 font-display text-[22rem] font-black leading-none text-transparent [-webkit-text-stroke:2px_rgb(254_190_16/0.3)] md:right-16 md:text-[32rem]">
-            {first[0]}
-          </span>
-          <div className="absolute top-[14%] right-[10%] flex flex-col items-center gap-3 text-ash max-md:left-0 max-md:right-0 md:top-1/2 md:-translate-y-1/2">
-            <UserRound strokeWidth={1} className="size-28 md:size-44" aria-hidden="true" />
-            <span className="text-xs font-semibold uppercase tracking-[0.18em]">Photo coming soon</span>
-          </div>
-        </>
-      )}
-      <div className="absolute inset-0 bg-linear-to-t from-ink via-ink/30 to-transparent md:bg-linear-to-r md:from-ink/90 md:via-ink/30" />
-
-      <motion.div
-        className="absolute inset-x-0 bottom-0 max-w-2xl p-6 md:p-12"
-        initial="out"
-        animate={active ? 'in' : 'out'}
-        variants={{ in: { transition: { staggerChildren: 0.07, delayChildren: 0.4 } }, out: { transition: { duration: 0 } } }}
-      >
-        <motion.p variants={reveal} className="text-sm font-bold uppercase tracking-[0.16em] text-gold">
-          {coach.role}
-        </motion.p>
-        <motion.h3 variants={reveal} className="font-display text-7xl font-black uppercase leading-[0.85] md:text-9xl">
-          {coach.name}
-        </motion.h3>
-        <motion.ul variants={reveal} className="mt-5 flex flex-wrap gap-2">
-          {coach.focus.map((f) => (
-            <li key={f} className="rounded-full bg-paper/10 px-3 py-1 text-sm font-semibold ring-1 ring-paper/15">
-              {f}
-            </li>
-          ))}
-        </motion.ul>
-        <motion.div variants={reveal} className="mt-7">
-          <SlideTextButton href={GYM.facebook} target="_blank" rel="noreferrer" variant="gold" text={`Train with ${first}`} hoverText="Message us on Facebook" />
-        </motion.div>
-      </motion.div>
-    </div>
+    </motion.div>
   )
 }
 

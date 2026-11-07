@@ -45,19 +45,19 @@ export const COACHES = [
   {
     name: 'Coach Art',
     role: 'Head Coach',
-    photo: null, // drop a file in public/assets/ and set e.g. '/assets/coach-art.jpg'
+    photo: '/assets/coach-art.webp', // transparent cut-out, 880x1100 WebP
     focus: ['Strength & powerlifting', 'Program design', 'Form clinics'],
   },
   {
     name: 'Coach Karl',
     role: 'Coach',
-    photo: null,
+    photo: '/assets/coach-karl.webp',
     focus: ['Fat loss & conditioning', 'Circuit training', 'Beginner onboarding'],
   },
   {
     name: 'Coach Wilmer',
     role: 'Coach',
-    photo: null,
+    photo: '/assets/coach-will.webp',
     focus: ['Hypertrophy', 'Mobility', 'Personal training'],
   },
 ]
